@@ -13,6 +13,7 @@ import markdown2
 import PyPDF2  
 import pandas as pd  
   
+# === プロキシ環境が必要な場合（なければ以下2行は削除推奨） ===  
 os.environ['HTTP_PROXY'] = 'http://g3.konicaminolta.jp:8080'  
 os.environ['HTTPS_PROXY'] = 'http://g3.konicaminolta.jp:8080'  
   
@@ -175,6 +176,32 @@ def get_indexed_files():
         })  
     return files  
   
+# ===== ここだけ追記 =====  
+def extract_ocr_text_from_gpt4o(image_bytes, ext):  
+    ext = ext.lower()  
+    mime_type = "jpeg" if ext == "jpg" else ext  
+    encoded = base64.b64encode(image_bytes).decode('utf-8')  
+    data_url = f"data:image/{mime_type};base64,{encoded}"  
+    prompt = (  
+        "この画像内の日本語・英語のテキストをできるだけ正確にすべて抜き出してください。"  
+        "説明や要約は不要です。"  
+    )  
+    result = client.chat.completions.create(  
+        model="gpt-4o",  
+        messages=[  
+            {  
+                "role": "user",  
+                "content": [  
+                    {"type": "text", "text": prompt},  
+                    {"type": "image_url", "image_url": {"url": data_url}}  
+                ]  
+            }  
+        ],  
+        max_tokens=4000  
+    )  
+    return result.choices[0].message.content.strip()  
+# ========================  
+  
 @app.route('/', methods=['GET', 'POST'])  
 def index():  
     get_authenticated_user()  
@@ -266,6 +293,7 @@ def index():
         indexed_files=indexed_files  
     )  
   
+# ===== 画像OCR機能を含んだインデックス作成関数 ================  
 def index_file_content_to_search(filename, file_url, ext):  
     try:  
         extracted_text = ""  
@@ -273,6 +301,7 @@ def index_file_content_to_search(filename, file_url, ext):
         summary = ""  
         category = ""  
         blob_client = file_container_client.get_blob_client(filename)  
+        ext = ext.lower()  
         if ext == 'pdf':  
             from io import BytesIO  
             blob_bytes = blob_client.download_blob().readall()  
@@ -327,9 +356,15 @@ def index_file_content_to_search(filename, file_url, ext):
                 title = filename  
                 summary = extracted_text[:100]  
                 category = "不明"  
+        elif ext in ['jpg','jpeg','png','gif']:  
+            blob_bytes = blob_client.download_blob().readall()  
+            extracted_text = extract_ocr_text_from_gpt4o(blob_bytes, ext)  
+            title = filename  
+            summary = extracted_text[:100]  
+            category = "画像"  
         else:  
             extracted_text = ""  
-            title, summary, category = filename, "", "画像/その他"  
+            title, summary, category = filename, "", "その他"  
   
         index_name = "index_drawing_management"  
         search_client = SearchClient(  
@@ -373,7 +408,6 @@ def delete_index_file():
     flash(f"インデックス・ファイルの削除が完了しました。", "info")  
     return redirect(url_for("index"))  
   
-# インデックスの一覧を取得するAPI (Ajax用)  
 @app.route('/indexed_files', methods=['GET'])  
 def ajax_list_indexed_files():  
     files = get_indexed_files()  
@@ -476,3 +510,4 @@ def send_message():
   
 if __name__ == '__main__':  
     app.run(debug=True, host='0.0.0.0')  
+  
