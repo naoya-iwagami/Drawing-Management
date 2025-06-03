@@ -1,0 +1,260 @@
+<!DOCTYPE html>  
+<html lang="ja">  
+<head>  
+  <meta charset="UTF-8">  
+  <title>PM Compass app</title>  
+  <link rel="stylesheet"  
+        href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">  
+  <link rel="stylesheet"  
+        href="{{ url_for('static', filename='styles.css') }}">  
+  <style>  
+    #loadingInline {  
+      display: none;  
+      align-items: center;  
+    }  
+    #loadingInline .loading-text {  
+      font-size: 1rem;  
+      color: #333;  
+      margin-left: 0.5em;  
+    }  
+  </style>  
+</head>  
+<body>  
+  <div class="container-fluid">  
+    <div class="row">  
+      <!-- サイドバー -->  
+      <div class="col-md-3 sidebar">  
+        <!-- チャット履歴見出し -->  
+        <h4>チャット履歴</h4>  
+        <ul class="chat-history">  
+          {% if chat_sessions %}  
+            {% set answered = chat_sessions | selectattr('first_assistant_message') | list %}  
+            {% if not show_all_history %}  
+              {% set display_sessions = answered[:max_displayed_history] %}  
+            {% else %}  
+              {% set display_sessions = answered[:max_total_history] %}  
+            {% endif %}  
+            {% for chat in display_sessions %}  
+              <li>  
+                <form method="POST">  
+                  <input type="hidden" name="select_chat"  
+                         value="{{ chat.session_id }}">  
+                  <button type="submit" class="btn btn-link sidebar-button">  
+                    {{ chat.first_assistant_message[:10] }}  
+                    {% if chat.first_assistant_message|length > 10 %}…{% endif %}  
+                  </button>  
+                </form>  
+              </li>  
+            {% endfor %}  
+          {% else %}  
+            <p>チャット履歴がありません。</p>  
+          {% endif %}  
+        </ul>  
+        {% if chat_sessions|length > max_displayed_history %}  
+        <form method="POST">  
+          <button type="submit" name="toggle_history"  
+                  class="btn btn-secondary">  
+            {{ '少なく表示' if show_all_history else 'もっと見る' }}  
+          </button>  
+        </form>  
+        {% endif %}  
+        <form method="POST">  
+          <button type="submit" name="new_chat" value="true"  
+                  class="btn btn-primary mt-2">新しいチャット</button>  
+        </form>  
+        <hr>  
+        <h4>ファイルアップロード</h4>  
+        <form method="POST" enctype="multipart/form-data">  
+          <div class="form-group">  
+            <input type="file" name="files" multiple  
+                   class="form-control-file"  
+                   accept=".jpg,.jpeg,.png,.gif,.pdf,.dwg,.xls,.xlsx"  
+                   onchange="this.form.submit()">  
+            <input type="hidden" name="upload_files" value="1">  
+          </div>  
+        </form>  
+        {% if files %}  
+          <h5>アップロードファイル</h5>  
+          {% for file in files %}  
+            <div class="uploaded-file">  
+              <p>{{ file.name }}</p>  
+              <a href="{{ file.url }}" target="_blank" rel="noopener">  
+                  {% if file.name.endswith('.jpg') or file.name.endswith('.jpeg') or file.name.endswith('.png') or file.name.endswith('.gif') %}  
+                    <img src="{{ file.url }}" alt="{{ file.name }}" width="100%">  
+                  {% elif file.name.endswith('.pdf') %}  
+                    <span>PDFファイル: 開く</span>  
+                  {% elif file.name.endswith('.dwg') %}  
+                    <span>DWGファイル: 開く</span>  
+                  {% elif file.name.endswith('.xls') or file.name.endswith('.xlsx') %}  
+                    <span>Excelファイル: 開く</span>  
+                  {% else %}  
+                    <span>その他ファイル: 開く</span>  
+                  {% endif %}  
+              </a>  
+              <form method="post">  
+                <input type="hidden" name="delete_file"  
+                       value="{{ file.name }}">  
+                <button type="submit"  
+                        class="btn btn-danger btn-sm mt-2">  
+                  削除  
+                </button>  
+              </form>  
+            </div>  
+          {% endfor %}  
+        {% endif %}  
+      </div>  
+      <!-- メインコンテンツ -->  
+      <div class="col-md-9 main-content">  
+        <div id="mainHeader" class="d-flex align-items-center justify-content-between mb-3">  
+          <h1 class="app-title mb-0">PM Compass app</h1>  
+          <div id="loadingInline">  
+            <span class="spinner-border spinner-border-sm text-primary" role="status"></span>  
+            <span class="loading-text">応答中です。しばらくお待ちください…</span>  
+          </div>  
+        </div>  
+        {% with messages = get_flashed_messages() %}  
+          {% if messages %}  
+            <ul class="flashes">  
+              {% for m in messages %}<li>{{ m }}</li>{% endfor %}  
+            </ul>  
+          {% endif %}  
+        {% endwith %}  
+        <!-- チャット表示領域 -->  
+        <div id="chatBox" class="chat-box">  
+          {% for msg in chat_history %}  
+            <div class="message-container  
+                       {% if msg.role=='user' %}user{% else %}assistant{% endif %}">  
+              <div class="message-bubble">  
+                {% if msg.role=='user' %}  
+                  <strong>あなた:</strong>  
+                  <p>{{ msg.content|e }}</p>  
+                {% else %}  
+                  <strong>アシスタント:</strong>  
+                  {% if msg.type=='html' %}  
+                    <div class="assistant-message">{{ msg.content|safe }}</div>  
+                  {% else %}  
+                    <p>{{ msg.content|e }}</p>  
+                  {% endif %}  
+                {% endif %}  
+              </div>  
+            </div>  
+          {% endfor %}  
+        </div>  
+        <!-- チャット入力欄 -->  
+        <form id="chatForm" class="chat-input">  
+          <div class="form-row">  
+            <div class="col-10">  
+              <textarea name="prompt" id="promptTextarea"  
+                        class="form-control" rows="2"  
+                        placeholder="ご質問を入力してください:"></textarea>  
+            </div>  
+            <div class="col-2">  
+              <button type="submit" id="sendButton"  
+                      class="btn btn-success btn-block">送信</button>  
+            </div>  
+          </div>  
+        </form>  
+      </div>  
+    </div>  
+  </div>  
+  <script>  
+  document.addEventListener('DOMContentLoaded', function() {  
+    // --- チャット入力欄の一時保存・復元 ---  
+    const promptTextarea = document.getElementById('promptTextarea');  
+    if (sessionStorage.getItem('chat_input')) {  
+      promptTextarea.value = sessionStorage.getItem('chat_input');  
+    }  
+    promptTextarea.addEventListener('input', function() {  
+      sessionStorage.setItem('chat_input', promptTextarea.value);  
+    });  
+    document.getElementById('chatForm').addEventListener('submit', function() {  
+      sessionStorage.removeItem('chat_input');  
+    });  
+  
+    const chatForm = document.getElementById('chatForm');  
+    const chatBox = document.getElementById('chatBox');  
+    const sendButton = document.getElementById('sendButton');  
+    const loadingInline = document.getElementById('loadingInline');  
+  
+    function scrollChatToBottom() {  
+      chatBox.scrollTop = chatBox.scrollHeight;  
+    }  
+  
+    function appendUserMessage(message) {  
+      const c = document.createElement('div');  
+      c.className = 'message-container user';  
+      c.innerHTML = `<div class="message-bubble">  
+                       <strong>あなた:</strong><p>${escapeHtml(message)}</p>  
+                     </div>`;  
+      chatBox.appendChild(c);  
+      scrollChatToBottom();  
+    }  
+  
+    function appendAssistantMessage(html) {  
+      const c = document.createElement('div');  
+      c.className = 'message-container assistant';  
+      c.innerHTML = `<div class="message-bubble">  
+                       <strong>アシスタント:</strong>  
+                       <div class="assistant-message">${html}</div>  
+                     </div>`;  
+      chatBox.appendChild(c);  
+      scrollChatToBottom();  
+    }  
+  
+    function escapeHtml(str) {  
+      if (!str) return '';  
+      return str.replace(/[&<>"']/g, function(m) {  
+        return ({  
+          '&': '&amp;', '<': '&lt;', '>': '&gt;',  
+          '"': '&quot;', "'": '&#39;'  
+        })[m];  
+      });  
+    }  
+  
+    function showLoading() {  
+      loadingInline.style.display = 'flex';  
+    }  
+    function hideLoading() {  
+      loadingInline.style.display = 'none';  
+    }  
+  
+    hideLoading();  
+  
+    chatForm.addEventListener('submit', e => {  
+      e.preventDefault();  
+      const prompt = promptTextarea.value.trim();  
+      if (!prompt) return;  
+      appendUserMessage(prompt);  
+      promptTextarea.value = '';  
+      sendButton.disabled = true;  
+      showLoading();  
+      fetch('/send_message', {  
+        method: 'POST',  
+        headers: {'Content-Type': 'application/json'},  
+        body: JSON.stringify({prompt})  
+      })  
+      .then(r => r.json())  
+      .then(data => {  
+        if (data.response) appendAssistantMessage(data.response);  
+        sendButton.disabled = false;  
+        hideLoading();  
+      })  
+      .catch(e => {  
+        sendButton.disabled = false;  
+        hideLoading();  
+        alert('エラーが発生しました');  
+      });  
+    });  
+  
+    promptTextarea.addEventListener('keydown', e => {  
+      if (e.key==='Enter' && !e.shiftKey) {  
+        e.preventDefault();  
+        chatForm.dispatchEvent(new Event('submit'));  
+      }  
+    });  
+  
+    scrollChatToBottom();  
+  });  
+  </script>  
+</body>  
+</html>  

@@ -1,0 +1,143 @@
+html, body {  
+  width: 100%;  
+  height: 100%;  
+  margin: 0;  
+  padding: 0;  
+  overflow: hidden;  
+}  
+  
+.container-fluid {  
+  padding: 0;  
+  height: 100%;  
+}  
+  
+.row {  
+  height: 100%;  
+  margin: 0;  
+}  
+  
+/* サイドバー */  
+.sidebar {  
+  background-color: #f8f9fa;  
+  padding: 20px;  
+  height: 100%;  
+  overflow-y: auto;  
+  overflow-x: hidden;  
+}  
+  
+/* メインコンテンツ全体を縦に並べる flexbox */  
+.main-content {  
+  padding: 20px;  
+  display: flex;  
+  flex-direction: column;  
+  height: 100%;  
+  overflow: hidden;  
+}  
+  
+.app-title, .flashes {  
+  flex: 0 0 auto;  
+  margin-bottom: 10px;  
+}  
+  
+/* チャット表示領域は残りを全部使って縦スクロール */  
+.chat-box {  
+  flex: 1 1 auto;  
+  border: 1px solid #ddd;  
+  padding: 10px;  
+  background: #fff;  
+  overflow-y: auto;  
+  overflow-x: hidden;  
+}  
+  
+/* 入力欄は一番下に固定 */  
+.chat-input {  
+  flex: 0 0 auto;  
+  margin-top: 10px;  
+}  
+  
+/* メッセージバブル */  
+.message-container {  
+  display: flex;  
+  margin-bottom: 15px;  
+}  
+.message-container.user {  
+  justify-content: flex-end;  
+}  
+.message-container.assistant {  
+  justify-content: flex-start;  
+}  
+.message-bubble {  
+  max-width: 70%;  
+  padding: 10px;  
+  border-radius: 15px;  
+  word-wrap: break-word;  
+  position: relative;  
+}  
+.message-container.user .message-bubble {  
+  background-color: #dcf8c6;  
+}  
+.message-container.assistant .message-bubble {  
+  background-color: #f1f0f0;  
+}  
+  
+/* チャット履歴・ファイルリストなどサイドバー用 */  
+.chat-history {  
+  padding-left: 0;  
+  list-style: none;  
+  margin: 0 0 1em 0;  
+}  
+  
+.uploaded-file {  
+  background: #f6f6fd;  
+  border: 1px solid #99c;  
+  border-radius: 6px;  
+  margin-bottom: 12px;  
+  padding: 8px;  
+  word-break: break-all;  
+}  
+.uploaded-file img {  
+  max-width: 100%;  
+  border-radius: 4px;  
+  margin-bottom: 5px;  
+}  
+  
+.uploaded-file span {  
+  color: #555;  
+}  
+  
+.assistant-message table {  
+  width: 100%;  
+  border-collapse: collapse;  
+  margin-bottom: 1em;  
+}  
+.assistant-message th, .assistant-message td {  
+  border: 1px solid #ddd;  
+  padding: 8px;  
+}  
+.assistant-message pre {  
+  background: #f8f8f8;  
+  padding: 10px;  
+  overflow-x: auto;  
+}  
+.assistant-message code {  
+  background: #f8f8f8;  
+  padding: 2px 4px;  
+  border-radius: 4px;  
+}  
+  
+/* ボタン類 */  
+.sidebar-button {  
+  width: 100%;  
+  text-align: left;  
+  padding: 0;  
+  background: none;  
+  border: none;  
+}  
+.btn-link.sidebar-button {  
+  color: #007bff;  
+}  
+/* for older Bootstrap support */  
+.btn-link.sidebar-button:hover, .sidebar-button:focus {  
+  color: #0056b3;  
+  text-decoration: underline;  
+}  
