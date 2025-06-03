@@ -48,8 +48,8 @@ file_container_client = blob_service_client.get_container_client(file_container_
 lock = threading.Lock()  
   
 SYSTEM_MESSAGE = "図面や機器リスト（PDF, DWG, Excel形式等）のファイル管理を、専門的ルールや煩雑な作業なしに、「誰でも簡単に」「正確で迅速に」できるようにしたい。"  
-  
 ALLOWED_EXTENSIONS = {'jpg','jpeg','png','gif','pdf','dwg','xls','xlsx'}  
+  
 def allowed_file(filename):  
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS  
   
@@ -155,6 +155,26 @@ def start_new_chat():
     session["main_chat_messages"] = []  
     session.modified = True  
   
+def get_indexed_files():  
+    index_name = "index_drawing_management"  
+    search_client = SearchClient(  
+        endpoint=search_service_endpoint,  
+        index_name=index_name,  
+        credential=AzureKeyCredential(search_service_key),  
+        transport=transport  
+    )  
+    results = search_client.search("*", select="id,filepath,title,category,url")  
+    files = []  
+    for r in results:  
+        files.append({  
+            "id": r["id"],  
+            "filepath": r.get("filepath", ""),  
+            "title": r.get("title", r.get("filepath", "")),  
+            "category": r.get("category", ""),  
+            "url": r.get("url", "")  
+        })  
+    return files  
+  
 @app.route('/', methods=['GET', 'POST'])  
 def index():  
     get_authenticated_user()  
@@ -208,7 +228,6 @@ def index():
                     if file and allowed_file(file.filename):  
                         try:  
                             filename = secure_filename(file.filename)  
-                            # --- ここで重複チェック ---  
                             blob_client = file_container_client.get_blob_client(filename)  
                             if blob_client.exists():  
                                 flash(f"「{filename}」は既に存在します。ファイル名を変更してアップロードしてください。", "error")  
@@ -226,32 +245,15 @@ def index():
                 session["file_filenames"] = file_filenames  
                 session.modified = True  
             return redirect(url_for('index'))  
-        if 'delete_file' in request.form:  
-            delete_filename = request.form.get("delete_file")  
-            file_filenames = session.get("file_filenames", [])  
-            file_filenames = [name for name in file_filenames if name != delete_filename]  
-            blob_client = file_container_client.get_blob_client(delete_filename)  
-            try:  
-                blob_client.delete_blob()  
-            except Exception as e:  
-                print("ファイル削除エラー:", e)  
-            session["file_filenames"] = file_filenames  
-            session.modified = True  
-            return redirect(url_for('index'))  
   
     chat_history = session.get("main_chat_messages", [])  
     sidebar_messages = session.get("sidebar_messages", [])  
     file_filenames = session.get("file_filenames", [])  
-    files = []  
-    for filename in file_filenames:  
-        blob_client = file_container_client.get_blob_client(filename)  
-        file_url = generate_sas_url(blob_client, filename)  
-        files.append({'name': filename, 'url': file_url})  
-  
+    files = [{"name": filename} for filename in file_filenames]  
     max_displayed_history = 6  
     max_total_history = 50  
     show_all_history = session.get("show_all_history", False)  
-  
+    indexed_files = get_indexed_files()  
     return render_template(  
         'index.html',  
         chat_history=chat_history,  
@@ -260,7 +262,8 @@ def index():
         show_all_history=show_all_history,  
         max_displayed_history=max_displayed_history,  
         max_total_history=max_total_history,  
-        session=session  
+        session=session,  
+        indexed_files=indexed_files  
     )  
   
 def index_file_content_to_search(filename, file_url, ext):  
@@ -299,7 +302,6 @@ def index_file_content_to_search(filename, file_url, ext):
                 category = "不明"  
         elif ext in ['xls', 'xlsx']:  
             from io import BytesIO  
-            import pandas as pd  
             blob_bytes = blob_client.download_blob().readall()  
             excel_stream = BytesIO(blob_bytes)  
             dfs = pd.read_excel(excel_stream, sheet_name=None)  
@@ -339,7 +341,7 @@ def index_file_content_to_search(filename, file_url, ext):
         doc = {  
             "id": str(uuid.uuid4()),  
             "title": title or filename,  
-            "content": extracted_text or summary or "",  # 全文を保存  
+            "content": extracted_text or summary or "",  
             "category": category,  
             "filepath": filename,  
             "url": file_url  
@@ -347,6 +349,35 @@ def index_file_content_to_search(filename, file_url, ext):
         search_client.upload_documents([doc])  
     except Exception as e:  
         print(f"Search登録エラー: {e}")  
+  
+@app.route("/delete_index_file", methods=["POST"])  
+def delete_index_file():  
+    index_id = request.form.get("index_id")  
+    filepath = request.form.get("filepath")  
+    try:  
+        search_client = SearchClient(  
+            endpoint=search_service_endpoint,  
+            index_name="index_drawing_management",  
+            credential=AzureKeyCredential(search_service_key),  
+            transport=transport  
+        )  
+        search_client.delete_documents(documents=[{"id": index_id}])  
+    except Exception as e:  
+        flash(f"インデックス削除エラー: {e}", "error")  
+    # Blobも削除  
+    try:  
+        blob_client = file_container_client.get_blob_client(filepath)  
+        blob_client.delete_blob()  
+    except Exception as e:  
+        flash(f"Blobファイル削除エラー（インデックスは削除済）: {e}", "error")  
+    flash(f"インデックス・ファイルの削除が完了しました。", "info")  
+    return redirect(url_for("index"))  
+  
+# インデックスの一覧を取得するAPI (Ajax用)  
+@app.route('/indexed_files', methods=['GET'])  
+def ajax_list_indexed_files():  
+    files = get_indexed_files()  
+    return jsonify(files)  
   
 @app.route('/send_message', methods=['POST'])  
 def send_message():  
@@ -367,7 +398,6 @@ def send_message():
         last2_ai = [m["content"] for m in messages if m["role"] == "assistant"][-2:]  
         search_chunks = last2_user + last2_ai + [prompt]  
         search_query = "\n".join(search_chunks)  
-  
         index_name = "index_drawing_management"  
         search_client = SearchClient(  
             endpoint=search_service_endpoint,  

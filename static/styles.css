@@ -25,7 +25,6 @@ html, body {
   overflow-x: hidden;  
 }  
   
-/* メインコンテンツ全体を縦に並べる flexbox */  
 .main-content {  
   padding: 20px;  
   display: flex;  
@@ -39,7 +38,6 @@ html, body {
   margin-bottom: 10px;  
 }  
   
-/* チャット表示領域は残りを全部使って縦スクロール */  
 .chat-box {  
   flex: 1 1 auto;  
   border: 1px solid #ddd;  
@@ -49,13 +47,11 @@ html, body {
   overflow-x: hidden;  
 }  
   
-/* 入力欄は一番下に固定 */  
 .chat-input {  
   flex: 0 0 auto;  
   margin-top: 10px;  
 }  
   
-/* メッセージバブル */  
 .message-container {  
   display: flex;  
   margin-bottom: 15px;  
@@ -80,29 +76,31 @@ html, body {
   background-color: #f1f0f0;  
 }  
   
-/* チャット履歴・ファイルリストなどサイドバー用 */  
 .chat-history {  
   padding-left: 0;  
   list-style: none;  
   margin: 0 0 1em 0;  
 }  
   
-.uploaded-file {  
-  background: #f6f6fd;  
-  border: 1px solid #99c;  
-  border-radius: 6px;  
-  margin-bottom: 12px;  
-  padding: 8px;  
-  word-break: break-all;  
+.indexed-file-list {  
+  list-style: none;  
+  padding-left: 0;  
+  margin: 0;  
 }  
-.uploaded-file img {  
-  max-width: 100%;  
-  border-radius: 4px;  
-  margin-bottom: 5px;  
+.indexed-file-item {  
+  margin-bottom: 8px;  
+  padding-bottom: 4px;  
+  border-bottom: 1px dashed #ccc;  
 }  
-  
-.uploaded-file span {  
-  color: #555;  
+.indexed-file-item strong {  
+  color: #2a2;  
+}  
+.indexed-file-item small {  
+  font-size: 80%;  
+}  
+.indexed-file-item form {  
+  display: inline;  
+  margin-left: 4px;  
 }  
   
 .assistant-message table {  
@@ -125,7 +123,6 @@ html, body {
   border-radius: 4px;  
 }  
   
-/* ボタン類 */  
 .sidebar-button {  
   width: 100%;  
   text-align: left;  
@@ -136,7 +133,6 @@ html, body {
 .btn-link.sidebar-button {  
   color: #007bff;  
 }  
-/* for older Bootstrap support */  
 .btn-link.sidebar-button:hover, .sidebar-button:focus {  
   color: #0056b3;  
   text-decoration: underline;  
