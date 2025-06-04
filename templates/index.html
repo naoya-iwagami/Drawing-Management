@@ -2,7 +2,7 @@
 <html lang="ja">  
 <head>  
   <meta charset="UTF-8">  
-  <title>PM Compass app</title>  
+  <title>Drawing Management</title>  
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">  
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">  
   <style>  
@@ -13,7 +13,6 @@
 <body>  
 <div class="container-fluid">  
   <div class="row">  
-  
     <!-- サイドバー -->  
     <div class="col-md-3 sidebar">  
       <h4>チャット履歴</h4>  
@@ -92,7 +91,7 @@
     <!-- メインコンテンツ -->  
     <div class="col-md-9 main-content">  
       <div id="mainHeader" class="d-flex align-items-center justify-content-between mb-3">  
-        <h1 class="app-title mb-0">PM Compass app</h1>  
+        <h1 class="app-title mb-0">Drawing Management</h1>  
         <div id="loadingInline">  
           <span class="spinner-border spinner-border-sm text-primary" role="status"></span>  
           <span class="loading-text">応答中です。しばらくお待ちください…</span>  
@@ -108,8 +107,7 @@
       <!-- チャット表示領域 -->  
       <div id="chatBox" class="chat-box">  
         {% for msg in chat_history %}  
-          <div class="message-container  
-                     {% if msg.role=='user' %}user{% else %}assistant{% endif %}">  
+          <div class="message-container {% if msg.role=='user' %}user{% else %}assistant{% endif %}">  
             <div class="message-bubble">  
               {% if msg.role=='user' %}  
                 <strong>あなた:</strong>  
@@ -236,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
   scrollChatToBottom();  
   
-  // ----- ここから「インデックス登録ファイル」自動リフレッシュロジック -----  
+  // ----- インデックス登録ファイル自動リフレッシュロジック -----  
   window.refreshIndexedFileList = function() {  
     // 0.5秒遅延で呼ぶことを前提にしている（フォーム送信完了後）  
     fetch('/indexed_files')  
@@ -270,7 +268,6 @@ document.addEventListener('DOMContentLoaded', function() {
       setTimeout(refreshIndexedFileList,1000); // 1秒遅れで反映  
     });  
   }  
-  
 });  
 </script>  
 </body>  

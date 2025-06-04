@@ -318,7 +318,7 @@ def index_file_content_to_search(filename, file_url, ext):
                 "フォーマット: タイトル:[…] サマリ:[…] カテゴリ:[…]"  
             )  
             ai_out = client.chat.completions.create(  
-                model="gpt-4o",  
+                model="gpt-4.1",    # gpt-4.1を使用  
                 messages=[{"role":"system","content":prompt}]  
             ).choices[0].message.content  
             try:  
@@ -345,7 +345,7 @@ def index_file_content_to_search(filename, file_url, ext):
                 "フォーマット: タイトル:[…] サマリ:[…] カテゴリ:[…]"  
             )  
             ai_out = client.chat.completions.create(  
-                model="gpt-4o",  
+                model="gpt-4.1",    # gpt-4.1を使用  
                 messages=[{"role":"system","content":prompt}]  
             ).choices[0].message.content  
             try:  
@@ -468,7 +468,7 @@ def send_message():
         messages_list.append({"role": "user", "content": f"以下のファイルリストを参考にしてください: {context[:50000]}"})  
         past_message_count = 20  
         messages_list.extend(session.get("main_chat_messages", [])[-(past_message_count * 2):])  
-        model_name = "gpt-4o"  
+        model_name = "gpt-4.1"  # gpt-4.1 を使用  
         extra_args = {}  
   
         response_obj = client.chat.completions.create(  
@@ -510,4 +510,3 @@ def send_message():
   
 if __name__ == '__main__':  
     app.run(debug=True, host='0.0.0.0')  
-  
