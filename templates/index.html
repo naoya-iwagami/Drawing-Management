@@ -1,72 +1,79 @@
 <!DOCTYPE html>  
 <html lang="ja">  
 <head>  
-  <meta charset="UTF-8">  
-  <title>Drawing Management</title>  
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">  
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">  
-  <style>  
-    #loadingInline { display: none; align-items: center; }  
-    #loadingInline .loading-text { font-size: 1rem; color: #333; margin-left: 0.5em; }  
-  </style>  
+    <meta charset="UTF-8">  
+    <title>Drawing Management</title>  
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">  
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">  
+    <style>  
+      #loadingInline { display: none; align-items: center; }  
+      #loadingInline .loading-text { font-size: 1rem; color: #333; margin-left: 0.5em; }  
+      .indexing-status { color: orange; font-weight: bold; }  
+      .indexed-status  { color: green;  font-weight: bold; }  
+      .error-status    { color: red;    font-weight: bold; }  
+    </style>  
 </head>  
 <body>  
 <div class="container-fluid">  
   <div class="row">  
     <!-- サイドバー -->  
     <div class="col-md-3 sidebar">  
-      <h4>チャット履歴</h4>  
-      <ul class="chat-history">  
-        {% if chat_sessions %}  
-          {% set answered = chat_sessions | selectattr('first_assistant_message') | list %}  
-          {% if not show_all_history %}  
-            {% set display_sessions = answered[:max_displayed_history] %}  
-          {% else %}  
-            {% set display_sessions = answered[:max_total_history] %}  
-          {% endif %}  
-          {% for chat in display_sessions %}  
-            <li>  
-              <form method="POST">  
-                <input type="hidden" name="select_chat" value="{{ chat.session_id }}">  
-                <button type="submit" class="btn btn-link sidebar-button">  
-                  {{ chat.first_assistant_message[:10] }}  
-                  {% if chat.first_assistant_message|length > 10 %}…{% endif %}  
-                </button>  
-              </form>  
-            </li>  
-          {% endfor %}  
-        {% else %}  
-          <p>チャット履歴がありません。</p>  
-        {% endif %}  
-      </ul>  
-      {% if chat_sessions|length > max_displayed_history %}  
-      <form method="POST">  
-        <button type="submit" name="toggle_history" class="btn btn-secondary">  
-          {{ '少なく表示' if show_all_history else 'もっと見る' }}  
-        </button>  
-      </form>  
-      {% endif %}  
-      <form method="POST">  
-        <button type="submit" name="new_chat" value="true" class="btn btn-primary mt-2">新しいチャット</button>  
-      </form>  
-      <hr>  
       <h4>ファイルアップロード</h4>  
       <form method="POST" enctype="multipart/form-data" id="uploadForm">  
         <div class="form-group">  
+          <label for="factory_name">工場名</label>  
+          <select name="factory_name" id="factory_name" class="form-control" required>  
+            <option value="" hidden>選択してください</option>  
+            <option value="L1">L1</option>  
+            <option value="L2">L2</option>  
+            <option value="L3">L3</option>  
+            <option value="L4">L4</option>  
+            <option value="L5">L5</option>  
+            <option value="L6">L6</option>  
+            <option value="L7">L7</option>  
+            <option value="L8">L8</option>  
+            <option value="LX">LX</option>  
+            <option value="LX2">LX2</option>  
+            <option value="LX3">LX3</option>  
+          </select>  
+        </div>  
+        <div class="form-group">  
+          <label for="machine_number">機番</label>  
+          <input type="text" name="machine_number" id="machine_number" class="form-control" required>  
+        </div>  
+        <div class="form-group">  
           <input type="file" name="files" multiple class="form-control-file"  
-                 accept=".jpg,.jpeg,.png,.gif,.pdf,.dwg,.xls,.xlsx"  
-                 onchange="document.getElementById('uploadForm').submit();">  
+                 accept=".jpg,.jpeg,.png,.gif,.pdf,.dwg"  
+                 id="file_input">  
           <input type="hidden" name="upload_files" value="1">  
         </div>  
       </form>  
-      {% if files %}  
-        <h5>アップロード済ファイル</h5>  
-        <ul>  
-        {% for file in files %}  
-          <li>{{ file.name }}</li>  
-        {% endfor %}  
-        </ul>  
-      {% endif %}  
+      <script>  
+        document.getElementById('file_input').addEventListener('change', function(e) {  
+          const factorySelect = document.getElementById('factory_name');  
+          const machineInput = document.getElementById('machine_number');  
+          if (!factorySelect.value) {  
+            alert('工場名を選択してください');  
+            factorySelect.focus();  
+            e.target.value = "";  
+            return;  
+          }  
+          if (!machineInput.value) {  
+            alert('機番を入力してください');  
+            machineInput.focus();  
+            e.target.value = "";  
+            return;  
+          }  
+          document.getElementById('uploadForm').submit();  
+        });  
+      </script>  
+  
+      <hr>  
+      <h5>インデックス進行状況</h5>  
+      <ul id="indexingStatusList">  
+        <!-- JSで動的に上書き -->  
+        <li>状態を取得中...</li>  
+      </ul>  
       <hr>  
       <h5>インデックス登録ファイル</h5>  
       <ul class="indexed-file-list" id="indexedFileList">  
@@ -75,6 +82,8 @@
             <li class="indexed-file-item">  
               <span title="{{ f.category }}"><strong>{{ f.title }}</strong></span>  
               <small class="text-muted"> ({{ f.filepath }})</small>  
+              <br>  
+              <span>工場名: {{ f.factory_name }}　機番: {{ f.machine_number }}</span>  
               <form class="d-inline" style="display:inline;" method="POST" action="{{ url_for('delete_index_file') }}" onsubmit="setTimeout(refreshIndexedFileList,500);">  
                 <input type="hidden" name="index_id" value="{{ f.id }}">  
                 <input type="hidden" name="filepath" value="{{ f.filepath }}">  
@@ -87,7 +96,6 @@
         {% endif %}  
       </ul>  
     </div>  
-  
     <!-- メインコンテンツ -->  
     <div class="col-md-9 main-content">  
       <div id="mainHeader" class="d-flex align-items-center justify-content-between mb-3">  
@@ -100,31 +108,32 @@
       {% with messages = get_flashed_messages() %}  
         {% if messages %}  
           <ul class="flashes">  
-            {% for m in messages %}<li>{{ m }}</li>{% endfor %}  
+            {% for m in messages %}  
+              <li>{{ m }}</li>  
+            {% endfor %}  
           </ul>  
         {% endif %}  
       {% endwith %}  
-      <!-- チャット表示領域 -->  
+  
       <div id="chatBox" class="chat-box">  
-        {% for msg in chat_history %}  
-          <div class="message-container {% if msg.role=='user' %}user{% else %}assistant{% endif %}">  
-            <div class="message-bubble">  
-              {% if msg.role=='user' %}  
-                <strong>あなた:</strong>  
-                <p>{{ msg.content|e }}</p>  
+      {% for msg in chat_history %}  
+        <div class="message-container {% if msg.role=='user' %}user{% else %}assistant{% endif %}">  
+          <div class="message-bubble">  
+            {% if msg.role=='user' %}  
+              <strong>あなた:</strong>  
+              <p>{{ msg.content|e }}</p>  
+            {% else %}  
+              <strong>アシスタント:</strong>  
+              {% if msg.type=='html' %}  
+                <div class="assistant-message">{{ msg.content|safe }}</div>  
               {% else %}  
-                <strong>アシスタント:</strong>  
-                {% if msg.type=='html' %}  
-                  <div class="assistant-message">{{ msg.content|safe }}</div>  
-                {% else %}  
-                  <p>{{ msg.content|e }}</p>  
-                {% endif %}  
+                <p>{{ msg.content|e }}</p>  
               {% endif %}  
-            </div>  
+            {% endif %}  
           </div>  
-        {% endfor %}  
+        </div>  
+      {% endfor %}  
       </div>  
-      <!-- チャット入力欄 -->  
       <form id="chatForm" class="chat-input">  
         <div class="form-row">  
           <div class="col-10">  
@@ -142,8 +151,68 @@
   </div>  
 </div>  
 <script>  
+let lastIndexedFiles = [];  
+  
+function refreshIndexedFileList(callback) {  
+  fetch('/indexed_files')  
+    .then(r => r.json())  
+    .then(files => {  
+      lastIndexedFiles = files.map(f => f.filepath); // ファイルパス一覧  
+      const ul = document.getElementById('indexedFileList');  
+      ul.innerHTML = '';  
+      if(files.length === 0){  
+        ul.innerHTML = '<li>インデックスファイルなし</li>';  
+      }else{  
+        files.forEach(f => {  
+          ul.innerHTML += `  
+            <li class="indexed-file-item">  
+              <span title="${f.category}"><strong>${f.title}</strong></span>  
+              <small class="text-muted"> (${f.filepath})</small><br>  
+              <span>工場名: ${f.factory_name}　機番: ${f.machine_number}</span>  
+              <form class="d-inline" style="display:inline;" method="POST" action="/delete_index_file" onsubmit="setTimeout(refreshIndexedFileList,500);">  
+                <input type="hidden" name="index_id" value="${f.id}">  
+                <input type="hidden" name="filepath" value="${f.filepath}">  
+                <button type="submit" class="btn btn-danger btn-sm ml-1">インデクス削除</button>  
+              </form>  
+            </li>  
+          `;  
+        });  
+      }  
+      if (callback) callback();  
+    });  
+}  
+refreshIndexedFileList();  
+setInterval(() => refreshIndexedFileList(refreshIndexingStatus), 5000);  
+  
+function refreshIndexingStatus() {  
+  fetch('/indexing_status')  
+    .then(r=>r.json())  
+    .then(statusList=>{  
+      const ul = document.getElementById('indexingStatusList');  
+      ul.innerHTML = '';  
+      // indexed_filesに現れたら進行状況から除外  
+      const filtered = statusList.filter(item =>  
+        item.status === 'indexing' &&  
+        !lastIndexedFiles.includes(item.filename)  
+      );  
+      if(filtered.length === 0){  
+        ul.innerHTML = '<li>進行中のファイルはありません</li>';  
+      }else{  
+        filtered.forEach(item=>{  
+          ul.innerHTML += `<li>  
+            <span class="indexing-status">  
+              <span class="spinner-border spinner-border-sm text-warning" role="status" aria-hidden="true"></span>  
+              ${item.filename}（インデックス登録中...）  
+            </span>  
+          </li>`;  
+        });  
+      }  
+    });  
+}  
+refreshIndexingStatus();  
+setInterval(refreshIndexingStatus, 5000);  
+  
 document.addEventListener('DOMContentLoaded', function() {  
-  // チャット入力欄の一時保存・復元  
   const promptTextarea = document.getElementById('promptTextarea');  
   if (sessionStorage.getItem('chat_input')) {  
     promptTextarea.value = sessionStorage.getItem('chat_input');  
@@ -154,16 +223,12 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('chatForm').addEventListener('submit', function() {  
     sessionStorage.removeItem('chat_input');  
   });  
-  
   const chatForm = document.getElementById('chatForm');  
   const chatBox = document.getElementById('chatBox');  
   const sendButton = document.getElementById('sendButton');  
   const loadingInline = document.getElementById('loadingInline');  
   
-  function scrollChatToBottom() {  
-    chatBox.scrollTop = chatBox.scrollHeight;  
-  }  
-  
+  function scrollChatToBottom() { chatBox.scrollTop = chatBox.scrollHeight; }  
   function appendUserMessage(message) {  
     const c = document.createElement('div');  
     c.className = 'message-container user';  
@@ -173,7 +238,6 @@ document.addEventListener('DOMContentLoaded', function() {
     chatBox.appendChild(c);  
     scrollChatToBottom();  
   }  
-  
   function appendAssistantMessage(html) {  
     const c = document.createElement('div');  
     c.className = 'message-container assistant';  
@@ -184,7 +248,6 @@ document.addEventListener('DOMContentLoaded', function() {
     chatBox.appendChild(c);  
     scrollChatToBottom();  
   }  
-  
   function escapeHtml(str) {  
     if (!str) return '';  
     return str.replace(/[&<>"']/g, function(m) {  
@@ -194,11 +257,9 @@ document.addEventListener('DOMContentLoaded', function() {
       })[m];  
     });  
   }  
-  
   function showLoading() { loadingInline.style.display = 'flex'; }  
   function hideLoading() { loadingInline.style.display = 'none'; }  
   hideLoading();  
-  
   chatForm.addEventListener('submit', e => {  
     e.preventDefault();  
     const prompt = promptTextarea.value.trim();  
@@ -224,50 +285,13 @@ document.addEventListener('DOMContentLoaded', function() {
       alert('エラーが発生しました');  
     });  
   });  
-  
   promptTextarea.addEventListener('keydown', e => {  
     if (e.key==='Enter' && !e.shiftKey) {  
       e.preventDefault();  
       chatForm.dispatchEvent(new Event('submit'));  
     }  
   });  
-  
   scrollChatToBottom();  
-  
-  // ----- インデックス登録ファイル自動リフレッシュロジック -----  
-  window.refreshIndexedFileList = function() {  
-    // 0.5秒遅延で呼ぶことを前提にしている（フォーム送信完了後）  
-    fetch('/indexed_files')  
-      .then(r => r.json())  
-      .then(files => {  
-        const ul = document.getElementById('indexedFileList');  
-        ul.innerHTML = '';  
-        if(files.length===0) {  
-          ul.innerHTML = '<li>インデックスファイルなし</li>';  
-        } else {  
-          files.forEach(f => {  
-            let li = document.createElement('li');  
-            li.className = "indexed-file-item";  
-            li.innerHTML = `<span title="${f.category}"><strong>${f.title}</strong></span>  
-            <small class="text-muted"> (${f.filepath})</small>  
-            <form class="d-inline" style="display:inline;" method="POST" action="/delete_index_file" onsubmit="setTimeout(refreshIndexedFileList,500);">  
-              <input type="hidden" name="index_id" value="${f.id}">  
-              <input type="hidden" name="filepath" value="${f.filepath}">  
-              <button type="submit" class="btn btn-danger btn-sm ml-1">インデクス削除</button>  
-            </form>`;  
-            ul.appendChild(li);  
-          });  
-        }  
-      });  
-  };  
-  
-  // ファイルアップロード後に自動でリフレッシュ  
-  const uploadForm = document.getElementById('uploadForm');  
-  if(uploadForm) {  
-    uploadForm.addEventListener('submit',function(){  
-      setTimeout(refreshIndexedFileList,1000); // 1秒遅れで反映  
-    });  
-  }  
 });  
 </script>  
 </body>  
