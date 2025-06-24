@@ -22,8 +22,6 @@ from pdf2image import convert_from_bytes
   
 POPLER_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "poppler", "bin"))  
 os.environ["PATH"] = POPLER_PATH + os.pathsep + os.environ.get("PATH", "")  
-os.environ['HTTP_PROXY'] = 'http://g3.konicaminolta.jp:8080'  
-os.environ['HTTPS_PROXY'] = 'http://g3.konicaminolta.jp:8080'  
   
 app = Flask(__name__)  
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your-default-secret-key')  
